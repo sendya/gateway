@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package gateway.middleware.auth.v1;
+
+option go_package = "github.com/go-kratos/gateway/api/gateway/middleware/auth/v1";
+
+// Auth middleware config.
+message Auth {
+  string authorization_key = 1;
+  string secret_key = 2;
+  string signing_method = 3;
+  repeated string ignored_path = 4;
+}

@@ -5,20 +5,23 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"time"
+
+	"github.com/go-kratos/kratos/v2"
+	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-kratos/kratos/v2/registry"
+	"github.com/go-kratos/kratos/v2/transport"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/go-kratos/gateway/client"
 	"github.com/go-kratos/gateway/config"
 	configLoader "github.com/go-kratos/gateway/config/config-loader"
 	"github.com/go-kratos/gateway/discovery"
+	_ "github.com/go-kratos/gateway/discovery/etcd"
 	"github.com/go-kratos/gateway/middleware"
-	"github.com/go-kratos/gateway/proxy"
-	"github.com/go-kratos/gateway/proxy/debug"
-	"github.com/go-kratos/gateway/server"
-
-	_ "net/http/pprof"
-
-	_ "github.com/go-kratos/gateway/discovery/consul"
+	_ "github.com/go-kratos/gateway/middleware/auth"
 	_ "github.com/go-kratos/gateway/middleware/bbr"
 	"github.com/go-kratos/gateway/middleware/circuitbreaker"
 	_ "github.com/go-kratos/gateway/middleware/cors"
@@ -26,12 +29,9 @@ import (
 	_ "github.com/go-kratos/gateway/middleware/rewrite"
 	_ "github.com/go-kratos/gateway/middleware/tracing"
 	_ "github.com/go-kratos/gateway/middleware/transcoder"
-	_ "go.uber.org/automaxprocs"
-
-	"github.com/go-kratos/kratos/v2"
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/go-kratos/kratos/v2/registry"
-	"github.com/go-kratos/kratos/v2/transport"
+	"github.com/go-kratos/gateway/proxy"
+	"github.com/go-kratos/gateway/proxy/debug"
+	"github.com/go-kratos/gateway/server"
 )
 
 var (
@@ -64,6 +64,8 @@ func (s *sliceVar) Set(val string) error {
 func (s *sliceVar) String() string { return fmt.Sprintf("%+v", *s) }
 
 func init() {
+	_, _ = maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {}))
+
 	flag.BoolVar(&withDebug, "debug", false, "enable debug handlers")
 	flag.Var(&proxyAddrs, "addr", "proxy address, eg: -addr 0.0.0.0:8080")
 	flag.StringVar(&proxyConfig, "conf", "config.yaml", "config path, eg: -conf config.yaml")
@@ -85,6 +87,11 @@ func makeDiscovery() registry.Discovery {
 
 func main() {
 	flag.Parse()
+	logger := log.With(
+		log.DefaultLogger,
+		"ts", log.Timestamp(time.DateTime),
+	)
+	log.SetLogger(logger)
 
 	clientFactory := client.NewFactory(makeDiscovery())
 	p, err := proxy.New(clientFactory, middleware.Create)
